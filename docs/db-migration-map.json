@@ -1,0 +1,40 @@
+{
+  "sequelizeImports": [
+    { "file": "Sequelize/db.js", "line": 1, "pattern": "require('sequelize')" },
+    { "file": "app.js", "line": 20, "pattern": "require('./Sequelize/db')" },
+    { "file": "Helper/Helpers.js", "line": 3, "pattern": "require('../Sequelize/db')" },
+    { "file": "Controller/MainController.js", "line": 1, "pattern": "require('../Sequelize/db')" },
+    { "file": "Models/Users.js", "line": 1, "pattern": "require('sequelize')" },
+    { "file": "Models/Users.js", "line": 2, "pattern": "require('../Sequelize/db')" },
+    { "file": "Models/Conversations.js", "line": 1, "pattern": "require('sequelize')" },
+    { "file": "Models/Conversations.js", "line": 2, "pattern": "require('../Sequelize/db')" }
+  ],
+  "queryLocations": [
+    { "file": "Helper/Helpers.js", "line": 166, "context": "createUser", "queryStyle": "db.query(sql, { replacements })" },
+    { "file": "Helper/Helpers.js", "line": 188, "context": "insertConversation", "queryStyle": "db.query(sql, { replacements })" },
+    { "file": "Controller/MainController.js", "line": 141, "context": "getUsers", "queryStyle": "db.query(sql)" },
+    { "file": "Controller/MainController.js", "line": 158, "context": "getConversations", "queryStyle": "db.query(sql, { replacements: [callSID] })" }
+  ],
+  "models": [
+    { "file": "Models/Users.js", "line": 4, "table": "users_demobot", "pattern": "sequelize.define('users_demobot', ...)" },
+    { "file": "Models/Conversations.js", "line": 4, "table": "conversations_demobot", "pattern": "sequelize.define('conversations_demobot', ...)" }
+  ],
+  "conversationWrites": [
+    { "file": "Helper/Helpers.js", "line": 175, "function": "insertConversation", "description": "Definition; INSERT INTO conversations_demobot" },
+    { "file": "services-twilio/realtimeServiceTwilio.js", "line": 311, "call": "insertConversation(this.callSID, this.recipient, 'user', userText)" },
+    { "file": "services-twilio/realtimeServiceTwilio.js", "line": 362, "call": "insertConversation(this.callSID, this.recipient, 'bot', aiText)" },
+    { "file": "services-plivo/realtimeServicePlivo.js", "line": 153, "call": "insertConversation(this.callSID, this.recipient, 'user', userText)" },
+    { "file": "services-plivo/realtimeServicePlivo.js", "line": 199, "call": "insertConversation(this.callSID, this.recipient, 'bot', aiText)" }
+  ],
+  "callEndHooks": [
+    { "file": "app.js", "line": 1064, "handler": "ws.on('close')", "provider": "Twilio", "actions": "CallRegistry.update(..., { status: 'disconnected' }); CallRegistry.delete(edgeSession.callSID)" },
+    { "file": "app.js", "line": 1271, "handler": "ws.on('close')", "provider": "Plivo", "actions": "CallRegistry.update; CallRegistry.delete" },
+    { "file": "app.js", "line": 1912, "handler": "ws.on('close')", "provider": "Plivo", "actions": "CallRegistry.update; CallRegistry.delete" }
+  ],
+  "dbConfigFiles": [
+    { "file": "Sequelize/db.js", "line": 10, "pattern": "new Sequelize(...)", "env": "DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_DIALECT" }
+  ],
+  "startupUsage": [
+    { "file": "app.js", "line": 1997, "pattern": "db.sync().then(...)", "also": "users.sync(); conversations.sync();" }
+  ]
+}

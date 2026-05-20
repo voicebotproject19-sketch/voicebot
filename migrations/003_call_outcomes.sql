@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS call_outcomes (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    callSID VARCHAR(64) NOT NULL,
+    outcome ENUM('booked','rejected','voicemail','transferred','abandoned','completed') DEFAULT 'completed',
+    personaId VARCHAR(64),
+    phoneNumber VARCHAR(32),
+    userEmail VARCHAR(255),
+    userPhone VARCHAR(32),
+    preferredSlot VARCHAR(255),
+    conversationPhase VARCHAR(32),
+    turnCount INT DEFAULT 0,
+    durationMs INT DEFAULT 0,
+    sentimentPrimary VARCHAR(32),
+    escalated TINYINT(1) DEFAULT 0,
+    synthesisScoreAvg DECIMAL(4,3),
+    degradationStateFinal VARCHAR(16) DEFAULT 'NORMAL',
+    packetLossAvg DECIMAL(4,3) DEFAULT 0,
+    phase4Profile VARCHAR(16),
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_outcome_callSID (callSID),
+    INDEX idx_outcome_persona (personaId),
+    INDEX idx_outcome_created (createdAt)
+);

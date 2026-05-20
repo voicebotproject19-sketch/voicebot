@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS call_context_snapshots (
+    callSID                         VARCHAR(128) NOT NULL PRIMARY KEY,
+    provider                        VARCHAR(32) DEFAULT NULL,
+    phoneNumber                     VARCHAR(32) DEFAULT NULL,
+    name                            VARCHAR(255) DEFAULT NULL,
+    persona                         VARCHAR(128) DEFAULT NULL,
+    language                        VARCHAR(32) DEFAULT NULL,
+    aiProvider                      VARCHAR(64) DEFAULT NULL,
+    contextHint                     VARCHAR(64) DEFAULT NULL,
+    policyConfig                    JSON DEFAULT NULL,
+    requireExplicitRecordingConsent TINYINT(1) NOT NULL DEFAULT 0,
+    providerStatus                  VARCHAR(64) DEFAULT NULL,
+    providerTerminal                TINYINT(1) NOT NULL DEFAULT 0,
+    providerTerminalAt              DATETIME(3) DEFAULT NULL,
+    bookingStatus                   VARCHAR(64) DEFAULT NULL,
+    bookingProvider                 VARCHAR(64) DEFAULT NULL,
+    externalBookingId               VARCHAR(512) DEFAULT NULL,
+    createdAt                       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt                       TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_call_context_provider_status (provider, providerStatus),
+    INDEX idx_call_context_booking_status (bookingStatus),
+    INDEX idx_call_context_updated_at (updatedAt)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

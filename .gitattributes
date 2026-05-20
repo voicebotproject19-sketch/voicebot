@@ -1,0 +1,5 @@
+.env.example text eol=crlf
+Utils/telemetryEvents.js text eol=crlf
+package.json text eol=crlf
+package-lock.json text eol=crlf
+*.sh text eol=lf

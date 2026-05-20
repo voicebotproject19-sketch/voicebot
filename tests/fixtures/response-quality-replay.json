@@ -1,0 +1,79 @@
+[
+  {
+    "text": "Yeah, can you tell me a joke?",
+    "intent": "side_question",
+    "shouldPivot": false,
+    "shouldAcceptOffer": false,
+    "expectedPatId": null
+  },
+  {
+    "text": "Actually, I want Shopify website do it.",
+    "intent": "buyer_intent",
+    "shouldPivot": true,
+    "shouldAcceptOffer": false,
+    "expectedPatId": "ecommerce_platform"
+  },
+  {
+    "text": "Where is your company located?",
+    "intent": "location_question",
+    "shouldPivot": false,
+    "shouldAcceptOffer": false,
+    "expectedPatId": "location"
+  },
+  {
+    "text": "What will be the budget of that particular website?",
+    "intent": "pricing_question",
+    "shouldPivot": false,
+    "shouldAcceptOffer": false,
+    "expectedPatId": "pricing"
+  },
+  {
+    "text": "What is the budget?",
+    "intent": "pricing_question",
+    "shouldPivot": false,
+    "shouldAcceptOffer": false,
+    "expectedPatId": "pricing"
+  },
+  {
+    "text": "Yeah, I wanted to hire.",
+    "intent": "buyer_intent",
+    "shouldPivot": true,
+    "shouldAcceptOffer": true,
+    "expectedPatId": null
+  },
+  {
+    "text": "Moodle, Moodle, they will wanted to have a Moodle develop.",
+    "intent": "buyer_intent",
+    "shouldPivot": true,
+    "shouldAcceptOffer": false,
+    "expectedPatId": "moodle_platform"
+  },
+  {
+    "text": "Can you hear me?",
+    "intent": "hearing_check",
+    "shouldPivot": false,
+    "shouldAcceptOffer": false,
+    "expectedPatId": null
+  },
+  {
+    "text": "Yes, what is this call about?",
+    "intent": "call_reason_question",
+    "shouldPivot": false,
+    "shouldAcceptOffer": false,
+    "expectedPatId": null
+  },
+  {
+    "text": "I wanted to Moodle website.",
+    "intent": "buyer_intent",
+    "shouldPivot": true,
+    "shouldAcceptOffer": false,
+    "expectedPatId": "moodle_platform"
+  },
+  {
+    "text": "I have a featureless dockeros.",
+    "intent": "unclear_sales_turn",
+    "shouldPivot": false,
+    "shouldAcceptOffer": false,
+    "expectedPatId": null
+  }
+]

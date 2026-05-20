@@ -1,0 +1,313 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspaceResourceId": {
+      "type": "string"
+    },
+    "actionGroupResourceId": {
+      "type": "string"
+    }
+  },
+  "variables": {
+    "scheduledQueryApiVersion": "2026-03-01"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Insights/scheduledQueryRules",
+      "apiVersion": "[variables('scheduledQueryApiVersion')]",
+      "name": "voicebot-error-rate-alert",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "displayName": "VoiceBot Error Rate > 5 in 5m",
+        "description": "Triggers when critical runtime errors exceed threshold.",
+        "enabled": true,
+        "scopes": [
+          "[parameters('workspaceResourceId')]"
+        ],
+        "evaluationFrequency": "PT5M",
+        "windowSize": "PT5M",
+        "criteria": {
+          "allOf": [
+            {
+              "query": "customEvents | extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType)) | where eventName in ('rag_error','realtime_connection_error','realtime_service_error','booking_provider_error','call_finalization_degraded','uncaught_exception','unhandled_rejection') | summarize errorCount = count()",
+              "timeAggregation": "Count",
+              "metricMeasureColumn": "errorCount",
+              "operator": "GreaterThan",
+              "threshold": 5,
+              "failingPeriods": {
+                "numberOfEvaluationPeriods": 1,
+                "minFailingPeriodsToAlert": 1
+              }
+            }
+          ]
+        },
+        "actions": {
+          "actionGroups": [
+            "[parameters('actionGroupResourceId')]"
+          ]
+        },
+        "severity": 2
+      }
+    },
+    {
+      "type": "Microsoft.Insights/scheduledQueryRules",
+      "apiVersion": "[variables('scheduledQueryApiVersion')]",
+      "name": "voicebot-latency-p95-alert",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "displayName": "VoiceBot Response Latency P95 > 1200ms",
+        "description": "Triggers when P95 response latency breaches SLO.",
+        "enabled": true,
+        "scopes": [
+          "[parameters('workspaceResourceId')]"
+        ],
+        "evaluationFrequency": "PT5M",
+        "windowSize": "PT5M",
+        "criteria": {
+          "allOf": [
+            {
+              "query": "customEvents | extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType)) | where eventName == 'response_latency' | extend latencyMs = coalesce(todouble(customDimensions.responseLatencyMs), todouble(customDimensions.latencyMs)) | where isnotnull(latencyMs) | summarize p95 = percentile(latencyMs, 95)",
+              "timeAggregation": "Average",
+              "metricMeasureColumn": "p95",
+              "operator": "GreaterThan",
+              "threshold": 1200,
+              "failingPeriods": {
+                "numberOfEvaluationPeriods": 1,
+                "minFailingPeriodsToAlert": 1
+              }
+            }
+          ]
+        },
+        "actions": {
+          "actionGroups": [
+            "[parameters('actionGroupResourceId')]"
+          ]
+        },
+        "severity": 2
+      }
+    },
+    {
+      "type": "Microsoft.Insights/scheduledQueryRules",
+      "apiVersion": "[variables('scheduledQueryApiVersion')]",
+      "name": "voicebot-booking-completion-rate-alert",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "displayName": "VoiceBot Booking Completion Rate < 5%",
+        "description": "Triggers when completed bookings from provider webhooks drop below target.",
+        "enabled": true,
+        "scopes": [
+          "[parameters('workspaceResourceId')]"
+        ],
+        "evaluationFrequency": "PT30M",
+        "windowSize": "PT2H",
+        "criteria": {
+          "allOf": [
+            {
+              "query": "let VoiceBotEvents = customEvents | extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType)), callId = case(isnotempty(tostring(customDimensions.callId)), tostring(customDimensions.callId), isnotempty(tostring(customDimensions.callSID)), tostring(customDimensions.callSID), isnotempty(tostring(customDimensions.callSid)), tostring(customDimensions.callSid), tostring(customDimensions.sid)); let totalCalls = toscalar(VoiceBotEvents | where eventName == 'call_summary' and isnotempty(callId) | summarize dcount(callId)); let completedBookings = toscalar(VoiceBotEvents | where eventName in ('booking_completed_webhook','call_summary') and isnotempty(callId) | extend outcome = tostring(customDimensions.outcome), bookingCompleted = tobool(customDimensions.bookingCompleted) | where eventName == 'booking_completed_webhook' or outcome == 'booking_completed' or bookingCompleted | summarize dcount(callId)); print completionPct = iif(totalCalls == 0, 100.0, 100.0 * todouble(completedBookings) / todouble(totalCalls))",
+              "timeAggregation": "Average",
+              "metricMeasureColumn": "completionPct",
+              "operator": "LessThan",
+              "threshold": 5,
+              "failingPeriods": {
+                "numberOfEvaluationPeriods": 1,
+                "minFailingPeriodsToAlert": 1
+              }
+            }
+          ]
+        },
+        "actions": {
+          "actionGroups": [
+            "[parameters('actionGroupResourceId')]"
+          ]
+        },
+        "severity": 3
+      }
+    },
+    {
+      "type": "Microsoft.Insights/scheduledQueryRules",
+      "apiVersion": "[variables('scheduledQueryApiVersion')]",
+      "name": "voicebot-booking-intent-dropoff-alert",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "displayName": "VoiceBot Booking Intent Delivery Rate < 50%",
+        "description": "Triggers when callers with booking intent are not reaching link delivery or completion stages.",
+        "enabled": true,
+        "scopes": [
+          "[parameters('workspaceResourceId')]"
+        ],
+        "evaluationFrequency": "PT30M",
+        "windowSize": "PT2H",
+        "criteria": {
+          "allOf": [
+            {
+              "query": "let VoiceBotEvents = customEvents | extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType)), callId = case(isnotempty(tostring(customDimensions.callId)), tostring(customDimensions.callId), isnotempty(tostring(customDimensions.callSID)), tostring(customDimensions.callSID), isnotempty(tostring(customDimensions.callSid)), tostring(customDimensions.callSid), tostring(customDimensions.sid)); let intentCalls = toscalar(VoiceBotEvents | where eventName in ('booking_intent_detected','booking_link_requested','booking_link_delivery_sent','booking_link_sent') and isnotempty(callId) | summarize dcount(callId)); let deliveredCalls = toscalar(VoiceBotEvents | where eventName in ('booking_link_delivery_sent','booking_link_sent','booking_completed_webhook') and isnotempty(callId) | summarize dcount(callId)); print deliveryPct = iif(intentCalls == 0, 100.0, 100.0 * todouble(deliveredCalls) / todouble(intentCalls))",
+              "timeAggregation": "Average",
+              "metricMeasureColumn": "deliveryPct",
+              "operator": "LessThan",
+              "threshold": 50,
+              "failingPeriods": {
+                "numberOfEvaluationPeriods": 1,
+                "minFailingPeriodsToAlert": 1
+              }
+            }
+          ]
+        },
+        "actions": {
+          "actionGroups": [
+            "[parameters('actionGroupResourceId')]"
+          ]
+        },
+        "severity": 3
+      }
+    },
+    {
+      "type": "Microsoft.Insights/scheduledQueryRules",
+      "apiVersion": "[variables('scheduledQueryApiVersion')]",
+      "name": "voicebot-booking-orphan-webhook-alert",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "displayName": "VoiceBot Orphan Booking Webhooks > 0",
+        "description": "Triggers when completed or cancelled booking webhooks cannot be attributed to a valid call.",
+        "enabled": true,
+        "scopes": [
+          "[parameters('workspaceResourceId')]"
+        ],
+        "evaluationFrequency": "PT30M",
+        "windowSize": "PT2H",
+        "criteria": {
+          "allOf": [
+            {
+              "query": "customEvents | extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType)) | where eventName == 'booking_webhook_orphaned' | summarize orphanCount = count()",
+              "timeAggregation": "Count",
+              "metricMeasureColumn": "orphanCount",
+              "operator": "GreaterThan",
+              "threshold": 0,
+              "failingPeriods": {
+                "numberOfEvaluationPeriods": 1,
+                "minFailingPeriodsToAlert": 1
+              }
+            }
+          ]
+        },
+        "actions": {
+          "actionGroups": [
+            "[parameters('actionGroupResourceId')]"
+          ]
+        },
+        "severity": 2
+      }
+    },
+    {
+      "type": "Microsoft.Insights/scheduledQueryRules",
+      "apiVersion": "[variables('scheduledQueryApiVersion')]",
+      "name": "voicebot-workflow-dead-letter-alert",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "displayName": "VoiceBot Workflow Dead Letters > 0",
+        "description": "Triggers when durable workflow action readiness reports dead-letter backlog.",
+        "enabled": true,
+        "scopes": [
+          "[parameters('workspaceResourceId')]"
+        ],
+        "evaluationFrequency": "PT5M",
+        "windowSize": "PT15M",
+        "criteria": {
+          "allOf": [
+            {
+              "query": "customEvents | extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType)) | where eventName == 'workflow_readiness_checked' | extend deadLetterCount = coalesce(toint(customDimensions.deadLetterCount), 0) | summarize deadLetterCount = max(deadLetterCount)",
+              "timeAggregation": "Maximum",
+              "metricMeasureColumn": "deadLetterCount",
+              "operator": "GreaterThan",
+              "threshold": 0,
+              "failingPeriods": {
+                "numberOfEvaluationPeriods": 1,
+                "minFailingPeriodsToAlert": 1
+              }
+            }
+          ]
+        },
+        "actions": {
+          "actionGroups": [
+            "[parameters('actionGroupResourceId')]"
+          ]
+        },
+        "severity": 2
+      }
+    },
+    {
+      "type": "Microsoft.Insights/scheduledQueryRules",
+      "apiVersion": "[variables('scheduledQueryApiVersion')]",
+      "name": "voicebot-workflow-stale-lock-alert",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "displayName": "VoiceBot Workflow Stale Processing Locks > 0",
+        "description": "Triggers when durable workflow action readiness reports stale processing locks.",
+        "enabled": true,
+        "scopes": [
+          "[parameters('workspaceResourceId')]"
+        ],
+        "evaluationFrequency": "PT5M",
+        "windowSize": "PT15M",
+        "criteria": {
+          "allOf": [
+            {
+              "query": "customEvents | extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType)) | where eventName == 'workflow_readiness_checked' | extend staleProcessingCount = coalesce(toint(customDimensions.staleProcessingCount), 0) | summarize staleProcessingCount = max(staleProcessingCount)",
+              "timeAggregation": "Maximum",
+              "metricMeasureColumn": "staleProcessingCount",
+              "operator": "GreaterThan",
+              "threshold": 0,
+              "failingPeriods": {
+                "numberOfEvaluationPeriods": 1,
+                "minFailingPeriodsToAlert": 1
+              }
+            }
+          ]
+        },
+        "actions": {
+          "actionGroups": [
+            "[parameters('actionGroupResourceId')]"
+          ]
+        },
+        "severity": 2
+      }
+    },
+    {
+      "type": "Microsoft.Insights/scheduledQueryRules",
+      "apiVersion": "[variables('scheduledQueryApiVersion')]",
+      "name": "voicebot-workflow-poll-failure-alert",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "displayName": "VoiceBot Workflow Outbox Poll Failures > 0",
+        "description": "Triggers when the durable workflow action outbox poller reports failures.",
+        "enabled": true,
+        "scopes": [
+          "[parameters('workspaceResourceId')]"
+        ],
+        "evaluationFrequency": "PT5M",
+        "windowSize": "PT15M",
+        "criteria": {
+          "allOf": [
+            {
+              "query": "customEvents | extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType)) | where eventName == 'action_outbox_poll_failed' | summarize pollFailureCount = count()",
+              "timeAggregation": "Count",
+              "metricMeasureColumn": "pollFailureCount",
+              "operator": "GreaterThan",
+              "threshold": 0,
+              "failingPeriods": {
+                "numberOfEvaluationPeriods": 1,
+                "minFailingPeriodsToAlert": 1
+              }
+            }
+          ]
+        },
+        "actions": {
+          "actionGroups": [
+            "[parameters('actionGroupResourceId')]"
+          ]
+        },
+        "severity": 2
+      }
+    }
+  ]
+}

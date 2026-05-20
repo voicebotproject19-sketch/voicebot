@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS booking_delivery_events (
+    id                BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    dedupeKey         CHAR(64) NOT NULL,
+    callSID           VARCHAR(128) DEFAULT NULL,
+    bookingProvider   VARCHAR(64) DEFAULT NULL,
+    linkHash          VARCHAR(64) DEFAULT NULL,
+    channel           ENUM('sms', 'whatsapp', 'email', 'delivery') NOT NULL,
+    messageProvider   VARCHAR(64) DEFAULT NULL,
+    destinationHash   CHAR(64) DEFAULT NULL,
+    externalMessageId VARCHAR(512) DEFAULT NULL,
+    status            ENUM('sent', 'failed', 'unknown') NOT NULL DEFAULT 'unknown',
+    failureReason     VARCHAR(128) DEFAULT NULL,
+    attemptedAt       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    sentAt            TIMESTAMP NULL DEFAULT NULL,
+    updatedAt         TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_booking_delivery_dedupe (dedupeKey),
+    INDEX idx_booking_delivery_callSID (callSID),
+    INDEX idx_booking_delivery_channel_status (channel, status),
+    INDEX idx_booking_delivery_provider (messageProvider, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

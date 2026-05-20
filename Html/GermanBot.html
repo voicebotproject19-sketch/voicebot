@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bot Call Page</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: #ffffff;
+            width: 100%;
+            max-width: 440px;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.4s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #1a202c;
+            font-weight: 700;
+            font-size: 28px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4a5568;
+            font-size: 14px;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 2px solid #e2e8f0;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            background: #f7fafc;
+        }
+
+        input:focus,
+        select:focus {
+            border-color: #667eea;
+            outline: none;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        input::placeholder {
+            color: #a0aec0;
+        }
+
+        select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%234a5568' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            padding-right: 40px;
+        }
+
+        button {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 10px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .message {
+            margin-top: 20px;
+            padding: 14px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 500;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .error {
+            background: #fee;
+            color: #c53030;
+            border: 1px solid #fc8181;
+        }
+
+        .success {
+            background: #f0fdf4;
+            color: #15803d;
+            border: 1px solid #86efac;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 0.8s linear infinite;
+            margin-left: 8px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>📞 Initiate Call</h2>
+
+        <div class="form-group">
+            <label for="country">Select Country</label>
+            <select id="country">
+                <option value="">-- Select Country --</option>
+                <option value="+93">🇦🇫 Afghanistan (+93)</option>
+                <option value="+355">🇦🇱 Albania (+355)</option>
+                <option value="+213">🇩🇿 Algeria (+213)</option>
+                <option value="+54">🇦🇷 Argentina (+54)</option>
+                <option value="+61">🇦🇺 Australia (+61)</option>
+                <option value="+43">🇦🇹 Austria (+43)</option>
+                <option value="+880">🇧🇩 Bangladesh (+880)</option>
+                <option value="+32">🇧🇪 Belgium (+32)</option>
+                <option value="+55">🇧🇷 Brazil (+55)</option>
+                <option value="+1">🇨🇦 Canada (+1)</option>
+                <option value="+56">🇨🇱 Chile (+56)</option>
+                <option value="+86">🇨🇳 China (+86)</option>
+                <option value="+57">🇨🇴 Colombia (+57)</option>
+                <option value="+420">🇨🇿 Czech Republic (+420)</option>
+                <option value="+45">🇩🇰 Denmark (+45)</option>
+                <option value="+20">🇪🇬 Egypt (+20)</option>
+                <option value="+358">🇫🇮 Finland (+358)</option>
+                <option value="+33">🇫🇷 France (+33)</option>
+                <option value="+49">🇩🇪 Germany (+49)</option>
+                <option value="+30">🇬🇷 Greece (+30)</option>
+                <option value="+852">🇭🇰 Hong Kong (+852)</option>
+                <option value="+36">🇭🇺 Hungary (+36)</option>
+                <option value="+354">🇮🇸 Iceland (+354)</option>
+                <option value="+91">🇮🇳 India (+91)</option>
+                <option value="+62">🇮🇩 Indonesia (+62)</option>
+                <option value="+98">🇮🇷 Iran (+98)</option>
+                <option value="+964">🇮🇶 Iraq (+964)</option>
+                <option value="+353">🇮🇪 Ireland (+353)</option>
+                <option value="+972">🇮🇱 Israel (+972)</option>
+                <option value="+39">🇮🇹 Italy (+39)</option>
+                <option value="+81">🇯🇵 Japan (+81)</option>
+                <option value="+962">🇯🇴 Jordan (+962)</option>
+                <option value="+254">🇰🇪 Kenya (+254)</option>
+                <option value="+82">🇰🇷 South Korea (+82)</option>
+                <option value="+965">🇰🇼 Kuwait (+965)</option>
+                <option value="+60">🇲🇾 Malaysia (+60)</option>
+                <option value="+52">🇲🇽 Mexico (+52)</option>
+                <option value="+212">🇲🇦 Morocco (+212)</option>
+                <option value="+31">🇳🇱 Netherlands (+31)</option>
+                <option value="+64">🇳🇿 New Zealand (+64)</option>
+                <option value="+234">🇳🇬 Nigeria (+234)</option>
+                <option value="+47">🇳🇴 Norway (+47)</option>
+                <option value="+92">🇵🇰 Pakistan (+92)</option>
+                <option value="+63">🇵🇭 Philippines (+63)</option>
+                <option value="+48">🇵🇱 Poland (+48)</option>
+                <option value="+351">🇵🇹 Portugal (+351)</option>
+                <option value="+974">🇶🇦 Qatar (+974)</option>
+                <option value="+40">🇷🇴 Romania (+40)</option>
+                <option value="+7">🇷🇺 Russia (+7)</option>
+                <option value="+966">🇸🇦 Saudi Arabia (+966)</option>
+                <option value="+65">🇸🇬 Singapore (+65)</option>
+                <option value="+27">🇿🇦 South Africa (+27)</option>
+                <option value="+34">🇪🇸 Spain (+34)</option>
+                <option value="+94">🇱🇰 Sri Lanka (+94)</option>
+                <option value="+46">🇸🇪 Sweden (+46)</option>
+                <option value="+41">🇨🇭 Switzerland (+41)</option>
+                <option value="+886">🇹🇼 Taiwan (+886)</option>
+                <option value="+66">🇹🇭 Thailand (+66)</option>
+                <option value="+90">🇹🇷 Turkey (+90)</option>
+                <option value="+971">🇦🇪 UAE (+971)</option>
+                <option value="+44">🇬🇧 United Kingdom (+44)</option>
+                <option value="+1">🇺🇸 USA (+1)</option>
+                <option value="+84">🇻🇳 Vietnam (+84)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="phone">Mobile Number</label>
+            <input type="tel" id="phone" placeholder="Enter mobile number" />
+        </div>
+
+        <div class="form-group">
+            <label for="name">Your Name</label>
+            <input type="text" id="name" placeholder="Enter your name" />
+        </div>
+
+        <button id="callButton">Call Now</button>
+
+        <div id="messageBox"></div>
+    </div>
+
+    <script>
+        let DEMOBOT_READY = false;
+        fetch('/api/config').then(r => r.json()).then(c => {
+            if (c.demobotBaseUrl) {
+                DEMOBOT_READY = true;
+                callButton.disabled = false;
+                messageBox.innerHTML = '';
+            } else {
+                callButton.disabled = true;
+                messageBox.innerHTML = '<div class="message error">Backend not configured. Set DEMOBOT_BASE_URL in the server environment.</div>';
+            }
+        }).catch(() => {
+            callButton.disabled = true;
+            messageBox.innerHTML = '<div class="message error">Could not load config. Set DEMOBOT_BASE_URL in the server environment.</div>';
+        });
+
+        const countrySelect = document.getElementById('country');
+        const phoneInput = document.getElementById('phone');
+        const nameInput = document.getElementById('name');
+        const callButton = document.getElementById('callButton');
+        callButton.disabled = true;
+        const messageBox = document.getElementById('messageBox');
+
+        // Clear message when user types
+        [countrySelect, phoneInput, nameInput].forEach(input => {
+            input.addEventListener('input', () => {
+                messageBox.innerHTML = '';
+            });
+        });
+
+        callButton.addEventListener('click', async (e) => {
+            e.preventDefault();
+
+            if (!DEMOBOT_READY) {
+                showMessage('Backend not configured. Set DEMOBOT_BASE_URL in the server environment.', 'error');
+                return;
+            }
+
+            // Get current values
+            const country = countrySelect.value;
+            const phone = phoneInput.value.trim();
+            const name = nameInput.value.trim();
+            const persona = "company-sales";
+            const language = "de";
+
+            // Clear previous messages
+            messageBox.innerHTML = '';
+
+            // Validation
+            if (!country) {
+                showMessage('Please select a country.', 'error');
+                return;
+            }
+
+            if (!phone) {
+                showMessage('Please enter a phone number.', 'error');
+                return;
+            }
+
+            if (!/^\d+$/.test(phone)) {
+                showMessage('Phone number should contain only digits.', 'error');
+                return;
+            }
+
+            if (!name) {
+                showMessage('Please enter your name.', 'error');
+                return;
+            }
+
+            if (!language) {
+                showMessage('Please select a language.', 'error');
+                return;
+            }
+
+            // Disable button and show loading
+            callButton.disabled = true;
+            callButton.innerHTML = 'Calling...<span class="spinner"></span>';
+
+            try {
+                const fullNumber = country + phone;
+
+                const response = await fetch('/api/demobot/call', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        phoneNumber: fullNumber,
+                        persona: persona,
+                        language: language
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    showMessage('✓ Call initiated successfully!', 'success');
+                    // Clear form after success
+                    setTimeout(() => {
+                        countrySelect.value = '';
+                        phoneInput.value = '';
+                        nameInput.value = '';
+                    }, 2000);
+                } else {
+                    showMessage(data.message || 'Failed to initiate call. Please try again.', 'error');
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage('Unable to connect to server. Please check your connection.', 'error');
+            } finally {
+                // Re-enable button
+                callButton.disabled = false;
+                callButton.innerHTML = 'Call Now';
+            }
+        });
+
+        function showMessage(text, type) {
+            messageBox.innerHTML = `<div class="message ${type}">${text}</div>`;
+        }
+
+        // Allow only numbers in phone input
+        phoneInput.addEventListener('keypress', (e) => {
+            if (!/\d/.test(e.key) && e.key !== 'Backspace') {
+                e.preventDefault();
+            }
+        });
+    </script>
+</body>
+
+</html>

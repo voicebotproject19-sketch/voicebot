@@ -1,0 +1,149 @@
+{
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json",
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "# VoiceBot Operations and Business Dashboard\n\nEnd-to-end call health, Azure realtime reliability, booking funnel, and ROI telemetry."
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let VoiceBotEvents = customEvents\n| extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType))\n| extend callId = case(isnotempty(tostring(customDimensions.callId)), tostring(customDimensions.callId), isnotempty(tostring(customDimensions.callSID)), tostring(customDimensions.callSID), isnotempty(tostring(customDimensions.callSid)), tostring(customDimensions.callSid), tostring(customDimensions.sid));\nlet CallSummaries = VoiceBotEvents\n| where eventName == \"call_summary\" and isnotempty(callId)\n| summarize arg_max(timestamp, *) by callId\n| extend outcome = tostring(customDimensions.outcome), revenue = coalesce(todouble(customDimensions.estimatedRevenueUsd), 0.0), cost = coalesce(todouble(customDimensions.estimatedCostUsd), 0.0), bookingLinkSent = tobool(customDimensions.bookingLinkSent), bookingCompleted = tobool(customDimensions.bookingCompleted);\nlet CompletionPerCall = VoiceBotEvents\n| where eventName in (\"booking_completed_webhook\", \"call_summary\") and isnotempty(callId)\n| extend outcome = tostring(customDimensions.outcome), bookingCompleted = tobool(customDimensions.bookingCompleted), completionRevenue = coalesce(todouble(customDimensions.estimatedRevenueUsd), 0.0)\n| where eventName == \"booking_completed_webhook\" or outcome == \"booking_completed\" or bookingCompleted\n| summarize completionRevenueUsd = max(completionRevenue) by callId;\nlet completedBookingCount = toscalar(CompletionPerCall | summarize count());\nlet completedRevenueTotalUsd = toscalar(CompletionPerCall | summarize sum(completionRevenueUsd));\nCallSummaries\n| summarize totalCalls = dcount(callId), bookingLinksSent = dcountif(callId, bookingLinkSent or outcome == \"booking_link_sent\"), transfers = dcountif(callId, outcome == \"transferred\"), abandoned = dcountif(callId, outcome == \"abandoned\"), nonCompletionRevenueUsd = sum(iif(outcome == \"booking_completed\" or bookingCompleted, 0.0, revenue)), estimatedCostUsd = sum(cost)\n| extend completedBookings = completedBookingCount, estimatedRevenueUsd = nonCompletionRevenueUsd + completedRevenueTotalUsd, estimatedGrossProfitUsd = estimatedRevenueUsd - estimatedCostUsd\n| extend bookingCompletionRate = todouble(completedBookings) / iif(totalCalls == 0, 1.0, todouble(totalCalls)), bookingLinkRate = todouble(bookingLinksSent) / iif(totalCalls == 0, 1.0, todouble(totalCalls)), roiRatio = iif(estimatedCostUsd > 0, estimatedGrossProfitUsd / estimatedCostUsd, real(null))\n| project totalCalls, completedBookings, bookingLinksSent, transfers, abandoned, estimatedRevenueUsd, estimatedCostUsd, estimatedGrossProfitUsd, bookingCompletionRate, bookingLinkRate, roiRatio",
+        "size": 1,
+        "title": "Executive Scorecard"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let VoiceBotEvents = customEvents\n| extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType))\n| extend callId = case(isnotempty(tostring(customDimensions.callId)), tostring(customDimensions.callId), isnotempty(tostring(customDimensions.callSID)), tostring(customDimensions.callSID), isnotempty(tostring(customDimensions.callSid)), tostring(customDimensions.callSid), tostring(customDimensions.sid));\nVoiceBotEvents\n| where eventName in (\"telecom_status_received\", \"telecom_status_terminal\", \"realtime_session_created\", \"realtime_connection_error\", \"realtime_service_error\", \"realtime_connection_closed\", \"realtime_reconnected\", \"realtime_reconnection_failed\", \"reconnect_hold_music_started\", \"reconnect_hold_music_stopped\", \"reconnection_failed_hangup\", \"turn_created\", \"user_speech_started\", \"speech_window_transcribed\", \"response_latency\", \"speech_started\", \"speech_playback_started\", \"speech_emitted\", \"speech_completed\", \"turn_closed\", \"response_timeout\", \"token_budget_exceeded\", \"booking_intent_detected\", \"booking_link_requested\", \"booking_link_delivery_sent\", \"booking_link_delivery_failed\", \"booking_link_sent\", \"booking_link_failed\", \"booking_completed_webhook\", \"booking_webhook_orphaned\", \"handover_triggered\", \"handover_transfer_scheduled\", \"agent_availability_checked\", \"warm_transfer_started\", \"cold_transfer_started\", \"transfer_request_accepted\", \"transfer_request_failed\", \"agent_leg_answered\", \"agent_leg_accepted\", \"agent_leg_rejected\", \"warm_transfer_bridge_confirmed\", \"warm_transfer_failed\", \"call_transferred\", \"hangup_triggered\", \"call_finalization_started\", \"call_finalization_completed\", \"call_finalization_degraded\", \"call_summary\")\n| where isnotempty(callId) or eventName == \"booking_webhook_orphaned\"\n| project timestamp, callId, eventName, turnId = tostring(customDimensions.turnId), outcome = tostring(customDimensions.outcome), phase = tostring(customDimensions.conversationPhase), provider = tostring(coalesce(customDimensions.provider, customDimensions.bookingProvider)), channel = tostring(customDimensions.channel), latencyMs = coalesce(todouble(customDimensions.responseLatencyMs), todouble(customDimensions.latencyMs)), estimatedRevenueUsd = todouble(customDimensions.estimatedRevenueUsd), estimatedCostUsd = todouble(customDimensions.estimatedCostUsd), reason = tostring(customDimensions.reason)\n| order by timestamp desc",
+        "size": 0,
+        "title": "Recent End-to-End Call Timeline"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let VoiceBotEvents = customEvents\n| extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType))\n| extend callId = case(isnotempty(tostring(customDimensions.callId)), tostring(customDimensions.callId), isnotempty(tostring(customDimensions.callSID)), tostring(customDimensions.callSID), isnotempty(tostring(customDimensions.callSid)), tostring(customDimensions.callSid), tostring(customDimensions.sid));\nlet FunnelEvents = VoiceBotEvents\n| where eventName in (\"booking_intent_detected\", \"booking_link_requested\", \"booking_link_delivery_sent\", \"booking_link_sent\")\n| extend stage = case(eventName == \"booking_intent_detected\", \"1 Intent\", eventName == \"booking_link_requested\", \"2 Link requested\", eventName == \"booking_link_delivery_sent\", \"3 Delivery sent\", eventName == \"booking_link_sent\", \"4 Link sent\", \"Other\")\n| project timestamp, callId, stage;\nlet CompletionEvents = VoiceBotEvents\n| where eventName in (\"booking_completed_webhook\", \"call_summary\") and isnotempty(callId)\n| extend outcome = tostring(customDimensions.outcome), bookingCompleted = tobool(customDimensions.bookingCompleted)\n| where eventName == \"booking_completed_webhook\" or outcome == \"booking_completed\" or bookingCompleted\n| summarize timestamp = max(timestamp) by callId\n| extend stage = \"5 Booked\";\nunion FunnelEvents, CompletionEvents\n| where isnotempty(callId)\n| summarize calls = dcount(callId) by stage, bin(timestamp, 1h)\n| order by timestamp asc, stage asc",
+        "size": 0,
+        "title": "Booking Funnel by Hour"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let VoiceBotEvents = customEvents\n| extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType))\n| extend callId = case(isnotempty(tostring(customDimensions.callId)), tostring(customDimensions.callId), isnotempty(tostring(customDimensions.callSID)), tostring(customDimensions.callSID), isnotempty(tostring(customDimensions.callSid)), tostring(customDimensions.callSid), tostring(customDimensions.sid));\nlet IntentCalls = VoiceBotEvents\n| where eventName in (\"booking_intent_detected\", \"booking_link_requested\", \"booking_link_delivery_sent\", \"booking_link_sent\") and isnotempty(callId)\n| summarize intentAt = min(timestamp) by callId;\nlet CompletionCalls = VoiceBotEvents\n| where eventName in (\"booking_completed_webhook\", \"call_summary\") and isnotempty(callId)\n| extend outcome = tostring(customDimensions.outcome), bookingCompleted = tobool(customDimensions.bookingCompleted)\n| where eventName == \"booking_completed_webhook\" or outcome == \"booking_completed\" or bookingCompleted\n| summarize completedAt = max(timestamp) by callId;\nIntentCalls\n| join kind=leftouter CompletionCalls on callId\n| summarize intentCalls = dcount(callId), completedBookings = dcountif(callId, isnotempty(completedAt)) by bin(intentAt, 1h)\n| extend intentCompletionRate = todouble(completedBookings) / iif(intentCalls == 0, 1.0, todouble(intentCalls))\n| project timestamp = intentAt, intentCalls, completedBookings, intentCompletionRate\n| order by timestamp asc",
+        "size": 0,
+        "title": "Booking Intent Cohort Conversion"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let VoiceBotEvents = customEvents\n| extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType))\n| extend callId = case(isnotempty(tostring(customDimensions.callId)), tostring(customDimensions.callId), isnotempty(tostring(customDimensions.callSID)), tostring(customDimensions.callSID), isnotempty(tostring(customDimensions.callSid)), tostring(customDimensions.callSid), tostring(customDimensions.sid));\nVoiceBotEvents\n| where eventName == \"booking_webhook_orphaned\"\n| extend provider = tostring(customDimensions.provider), providerEventType = tostring(customDimensions.providerEventType), status = tostring(customDimensions.status), reason = tostring(customDimensions.reason), correlationStatus = tostring(customDimensions.correlationStatus)\n| summarize orphanWebhooks = count() by provider, providerEventType, status, reason, correlationStatus, bin(timestamp, 1h)\n| order by timestamp desc, orphanWebhooks desc",
+        "size": 0,
+        "title": "Booking Webhook Orphans"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let VoiceBotEvents = customEvents\n| extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType))\n| extend callId = case(isnotempty(tostring(customDimensions.callId)), tostring(customDimensions.callId), isnotempty(tostring(customDimensions.callSID)), tostring(customDimensions.callSID), isnotempty(tostring(customDimensions.callSid)), tostring(customDimensions.callSid), tostring(customDimensions.sid));\nlet CallSummaries = VoiceBotEvents\n| where eventName == \"call_summary\" and isnotempty(callId)\n| summarize arg_max(timestamp, *) by callId\n| extend persona = iff(isempty(tostring(customDimensions.persona)), \"unknown\", tostring(customDimensions.persona)), outcome = tostring(customDimensions.outcome), revenue = coalesce(todouble(customDimensions.estimatedRevenueUsd), 0.0), cost = coalesce(todouble(customDimensions.estimatedCostUsd), 0.0), bookingLinkSent = tobool(customDimensions.bookingLinkSent), bookingCompleted = tobool(customDimensions.bookingCompleted);\nlet CompletionPerCall = VoiceBotEvents\n| where eventName in (\"booking_completed_webhook\", \"call_summary\") and isnotempty(callId)\n| extend outcome = tostring(customDimensions.outcome), bookingCompleted = tobool(customDimensions.bookingCompleted), completionRevenue = coalesce(todouble(customDimensions.estimatedRevenueUsd), 0.0)\n| where eventName == \"booking_completed_webhook\" or outcome == \"booking_completed\" or bookingCompleted\n| summarize completionRevenueUsd = max(completionRevenue) by callId;\nCallSummaries\n| join kind=leftouter CompletionPerCall on callId\n| extend completedBooking = isnotnull(completionRevenueUsd)\n| summarize calls = dcount(callId), bookings = dcountif(callId, completedBooking), bookingLinksSent = dcountif(callId, bookingLinkSent or outcome == \"booking_link_sent\"), nonCompletionRevenueUsd = sum(iif(completedBooking or outcome == \"booking_completed\" or bookingCompleted, 0.0, revenue)), completedRevenueUsd = sum(coalesce(completionRevenueUsd, 0.0)), costUsd = sum(cost) by persona\n| extend revenueUsd = nonCompletionRevenueUsd + completedRevenueUsd, grossProfitUsd = revenueUsd - costUsd, avgCostPerCallUsd = iif(calls == 0, 0.0, costUsd / todouble(calls))\n| extend bookingRate = todouble(bookings) / iif(calls == 0, 1.0, todouble(calls)), roiRatio = iif(costUsd > 0, grossProfitUsd / costUsd, real(null))\n| project persona, calls, bookings, bookingLinksSent, revenueUsd, costUsd, grossProfitUsd, avgCostPerCallUsd, bookingRate, roiRatio\n| order by grossProfitUsd desc",
+        "size": 0,
+        "title": "Business Metrics by Persona"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let VoiceBotEvents = customEvents\n| extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType))\n| extend callId = case(isnotempty(tostring(customDimensions.callId)), tostring(customDimensions.callId), isnotempty(tostring(customDimensions.callSID)), tostring(customDimensions.callSID), isnotempty(tostring(customDimensions.callSid)), tostring(customDimensions.callSid), tostring(customDimensions.sid));\nlet CallSummaries = VoiceBotEvents\n| where eventName == \"call_summary\" and isnotempty(callId)\n| summarize arg_max(timestamp, *) by callId\n| extend outcome = tostring(customDimensions.outcome), revenue = coalesce(todouble(customDimensions.estimatedRevenueUsd), 0.0), cost = coalesce(todouble(customDimensions.estimatedCostUsd), 0.0), bookingCompleted = tobool(customDimensions.bookingCompleted);\nlet CallDaily = CallSummaries\n| summarize calls = dcount(callId), estimatedCostUsd = sum(cost), nonCompletionRevenueUsd = sum(iif(outcome == \"booking_completed\" or bookingCompleted, 0.0, revenue)) by day = bin(timestamp, 1d);\nlet CompletionDaily = VoiceBotEvents\n| where eventName in (\"booking_completed_webhook\", \"call_summary\") and isnotempty(callId)\n| extend outcome = tostring(customDimensions.outcome), bookingCompleted = tobool(customDimensions.bookingCompleted), completionRevenue = coalesce(todouble(customDimensions.estimatedRevenueUsd), 0.0)\n| where eventName == \"booking_completed_webhook\" or outcome == \"booking_completed\" or bookingCompleted\n| summarize completionRevenueUsd = max(completionRevenue), completionTimestamp = max(timestamp) by callId\n| summarize completedBookings = count(), completedRevenueUsd = sum(completionRevenueUsd) by completionDay = bin(completionTimestamp, 1d);\nCallDaily\n| join kind=fullouter CompletionDaily on $left.day == $right.completionDay\n| extend timestamp = coalesce(day, completionDay), calls = coalesce(calls, 0), completedBookings = coalesce(completedBookings, 0), estimatedCostUsd = coalesce(estimatedCostUsd, 0.0), estimatedRevenueUsd = coalesce(nonCompletionRevenueUsd, 0.0) + coalesce(completedRevenueUsd, 0.0)\n| extend estimatedGrossProfitUsd = estimatedRevenueUsd - estimatedCostUsd, roiRatio = iif(estimatedCostUsd > 0, estimatedGrossProfitUsd / estimatedCostUsd, real(null))\n| project timestamp, calls, completedBookings, estimatedRevenueUsd, estimatedCostUsd, estimatedGrossProfitUsd, roiRatio\n| order by timestamp asc",
+        "size": 0,
+        "title": "Daily Revenue, Cost, and ROI"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let VoiceBotEvents = customEvents\n| extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType))\n| extend callId = case(isnotempty(tostring(customDimensions.callId)), tostring(customDimensions.callId), isnotempty(tostring(customDimensions.callSID)), tostring(customDimensions.callSID), isnotempty(tostring(customDimensions.callSid)), tostring(customDimensions.callSid), tostring(customDimensions.sid));\nVoiceBotEvents\n| where eventName == \"response_latency\"\n| extend latencyMs = coalesce(todouble(customDimensions.responseLatencyMs), todouble(customDimensions.latencyMs))\n| where isnotnull(latencyMs)\n| summarize p50 = percentile(latencyMs, 50), p95 = percentile(latencyMs, 95), p99 = percentile(latencyMs, 99) by bin(timestamp, 5m)\n| order by timestamp asc",
+        "size": 0,
+        "title": "Response Latency P50/P95/P99"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let VoiceBotEvents = customEvents\n| extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType))\n| extend callId = case(isnotempty(tostring(customDimensions.callId)), tostring(customDimensions.callId), isnotempty(tostring(customDimensions.callSID)), tostring(customDimensions.callSID), isnotempty(tostring(customDimensions.callSid)), tostring(customDimensions.callSid), tostring(customDimensions.sid));\nVoiceBotEvents\n| where eventName in (\"rag_error\", \"realtime_connection_error\", \"realtime_service_error\", \"booking_provider_error\", \"call_finalization_degraded\", \"uncaught_exception\", \"unhandled_rejection\")\n| summarize errors = count(), impactedCalls = dcount(callId) by eventName, bin(timestamp, 5m)\n| order by timestamp desc, errors desc",
+        "size": 0,
+        "title": "Errors and Degraded Finalization"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let VoiceBotEvents = customEvents\n| extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType))\n| extend callId = case(isnotempty(tostring(customDimensions.callId)), tostring(customDimensions.callId), isnotempty(tostring(customDimensions.callSID)), tostring(customDimensions.callSID), isnotempty(tostring(customDimensions.callSid)), tostring(customDimensions.callSid), tostring(customDimensions.sid));\nVoiceBotEvents\n| where eventName == \"behavior_drift_detected\"\n| extend driftFlags = todynamic(customDimensions.driftFlags), carrierScore = todouble(customDimensions.carrierQualityScore)\n| mv-expand flag = driftFlags to typeof(string)\n| summarize driftCount = count(), impactedCalls = dcount(callId), avgCarrierScore = avg(carrierScore) by tostring(flag), bin(timestamp, 15m)\n| order by timestamp desc, driftCount desc",
+        "size": 0,
+        "title": "Conversation Drift and Carrier Quality"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let VoiceBotEvents = customEvents\n| extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType))\n| extend callId = case(isnotempty(tostring(customDimensions.callId)), tostring(customDimensions.callId), isnotempty(tostring(customDimensions.callSID)), tostring(customDimensions.callSID), isnotempty(tostring(customDimensions.callSid)), tostring(customDimensions.callSid), tostring(customDimensions.sid));\nVoiceBotEvents\n| where eventName == \"realtime_usage\"\n| extend inputTokens = coalesce(todouble(customDimensions.input_tokens), todouble(customDimensions.inputTokens), 0.0), outputTokens = coalesce(todouble(customDimensions.output_tokens), todouble(customDimensions.outputTokens), 0.0)\n| summarize totalInputTokens = sum(inputTokens), totalOutputTokens = sum(outputTokens), p95InputTokens = percentile(inputTokens, 95), p95OutputTokens = percentile(outputTokens, 95) by bin(timestamp, 1h)\n| order by timestamp asc",
+        "size": 0,
+        "title": "Token Usage"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let VoiceBotEvents = customEvents\n| extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType))\n| extend callId = case(isnotempty(tostring(customDimensions.callId)), tostring(customDimensions.callId), isnotempty(tostring(customDimensions.callSID)), tostring(customDimensions.callSID), isnotempty(tostring(customDimensions.callSid)), tostring(customDimensions.callSid), tostring(customDimensions.sid));\nVoiceBotEvents\n| where eventName in (\"action_outbox_enqueued\", \"action_outbox_claimed\", \"action_outbox_completed\", \"action_outbox_failed\", \"action_outbox_duplicate\", \"action_outbox_requeued\", \"action_outbox_poll_failed\")\n| extend workflowId = tostring(customDimensions.workflowId), actionType = tostring(customDimensions.actionType), status = tostring(customDimensions.status), reason = tostring(customDimensions.reason)\n| summarize events = count(), impactedCalls = dcount(callId), failures = countif(eventName == \"action_outbox_failed\"), requeues = countif(eventName == \"action_outbox_requeued\"), pollFailures = countif(eventName == \"action_outbox_poll_failed\"), deadLetters = countif(eventName == \"action_outbox_failed\" and status == \"dead_letter\"), retries = countif(eventName == \"action_outbox_failed\" and status == \"retry\") by eventName, workflowId, actionType, status, bin(timestamp, 5m)\n| order by timestamp desc, events desc",
+        "size": 0,
+        "title": "Workflow Action Operations"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let VoiceBotEvents = customEvents\n| extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType));\nVoiceBotEvents\n| where eventName == \"workflow_readiness_checked\"\n| extend readinessStatus = tostring(customDimensions.status), environment = tostring(customDimensions.environment), workerEnabled = tobool(customDimensions.workerEnabled), workerRequired = tobool(customDimensions.workerRequired), retryCount = coalesce(toint(customDimensions.retryCount), 0), deadLetterCount = coalesce(toint(customDimensions.deadLetterCount), 0), staleProcessingCount = coalesce(toint(customDimensions.staleProcessingCount), 0), oldestRetryAgeSeconds = todouble(customDimensions.oldestRetryAgeSeconds), oldestDeadLetterAgeSeconds = todouble(customDimensions.oldestDeadLetterAgeSeconds), oldestStaleLockAgeSeconds = todouble(customDimensions.oldestStaleLockAgeSeconds)\n| summarize retryBacklog = max(retryCount), deadLetters = max(deadLetterCount), staleLocks = max(staleProcessingCount), maxRetryAgeSeconds = max(oldestRetryAgeSeconds), maxDeadLetterAgeSeconds = max(oldestDeadLetterAgeSeconds), maxStaleLockAgeSeconds = max(oldestStaleLockAgeSeconds), disabledProductionWorker = maxif(1, workerRequired and not(workerEnabled)) by bin(timestamp, 5m), environment, readinessStatus\n| order by timestamp desc",
+        "size": 0,
+        "title": "Workflow Readiness Backlog"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let VoiceBotEvents = customEvents\n| extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType));\nVoiceBotEvents\n| where eventName in (\"workflow_dark_read_compared\", \"workflow_dark_read_mismatch\")\n| extend workflowId = tostring(customDimensions.workflowId), readModel = tostring(customDimensions.readModel), readPolicy = tostring(customDimensions.readPolicy), source = tostring(customDimensions.source), fallbackUsed = tobool(customDimensions.fallbackUsed), workflowStatePresent = tobool(customDimensions.workflowStatePresent), fallbackPresent = tobool(customDimensions.fallbackPresent), workflowReadSkipped = tobool(customDimensions.workflowReadSkipped), parityOk = tobool(customDimensions.parityOk), mismatchCount = coalesce(toint(customDimensions.mismatchCount), 0), mismatchFields = tostring(customDimensions.mismatchFields)\n| summarize comparisons = countif(eventName == \"workflow_dark_read_compared\"), mismatches = countif(eventName == \"workflow_dark_read_mismatch\" or parityOk == false), fallbackReads = countif(fallbackUsed), workflowSkippedReads = countif(workflowReadSkipped), workflowStateReads = countif(source == \"workflow_state\"), workflowStatePresentCount = countif(workflowStatePresent), fallbackPresentCount = countif(fallbackPresent), maxMismatchCount = max(mismatchCount), mismatchFields = make_set(mismatchFields, 25) by bin(timestamp, 15m), workflowId, readModel, readPolicy, source\n| extend mismatchRate = todouble(mismatches) / iif(comparisons == 0, 1.0, todouble(comparisons))\n| order by timestamp desc, mismatches desc",
+        "size": 0,
+        "title": "Workflow Dark-Read Parity"
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let VoiceBotEvents = customEvents\n| extend eventName = case(isnotempty(tostring(name)), tostring(name), isnotempty(tostring(customDimensions[\"microsoft.custom_event.name\"])), tostring(customDimensions[\"microsoft.custom_event.name\"]), tostring(customDimensions.eventType));\nVoiceBotEvents\n| where eventName in (\"workflow_reconciliation_audit\", \"workflow_reconciliation_requeue_completed\")\n| extend auditId = tostring(customDimensions.auditId), mode = tostring(customDimensions.mode), dryRun = tobool(customDimensions.dryRun), workflowId = tostring(customDimensions.workflowId), actionType = tostring(customDimensions.actionType), plannedActionCount = coalesce(toint(customDimensions.plannedActionCount), 0), requeuedCount = coalesce(toint(customDimensions.requeuedCount), 0), failedCount = coalesce(toint(customDimensions.failedCount), 0), cappedLimit = coalesce(toint(customDimensions.cappedLimit), 0), statuses = tostring(customDimensions.statuses), invalidStatuses = tostring(customDimensions.invalidStatuses)\n| summarize auditEvents = countif(eventName == \"workflow_reconciliation_audit\"), completionEvents = countif(eventName == \"workflow_reconciliation_requeue_completed\"), plannedActions = max(plannedActionCount), requeuedActions = max(requeuedCount), failedActions = max(failedCount), cappedLimit = max(cappedLimit), statuses = make_set(statuses, 10), invalidStatuses = make_set(invalidStatuses, 10), lastSeen = max(timestamp) by bin(timestamp, 15m), auditId, mode, dryRun, workflowId, actionType\n| order by lastSeen desc, plannedActions desc",
+        "size": 0,
+        "title": "Workflow Reconciliation Audit"
+      }
+    }
+  ],
+  "fallbackResourceIds": [],
+  "isLocked": false
+}

@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Conversation Viewer</title>
+    <style>
+        :root {
+            --left-width: 320px;
+            --gap: 16px;
+            --bg: #f5f7fb;
+            --card: #fff;
+            --accent: #0b5fff;
+            --muted: #6b7280;
+            --bot-bg: #ffffff;
+            --user-bg: #0b5fff;
+            --user-color: #fff;
+        }
+
+        html,body {
+            height: 100%;
+            margin: 0;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+            background: var(--bg);
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            gap: var(--gap);
+            padding: var(--gap);
+            box-sizing: border-box;
+        }
+
+        /* Left column: contacts */
+        .left {
+            width: var(--left-width);
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .contacts {
+            background: var(--card);
+            border-radius: 8px;
+            padding: 8px;
+            box-shadow: 0 1px 3px rgba(16,24,40,0.04);
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .contact {
+            padding: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            transition: background .12s ease;
+            user-select: none;
+        }
+
+        .contact:hover { background: rgba(11,95,255,0.06); }
+        .contact.selected { background: rgba(11,95,255,0.12); }
+
+        .contact .name {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.1;
+        }
+
+        .contact .phone {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        /* Right column: conversation */
+        .right {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .right .header {
+            background: var(--card);
+            border-radius: 8px;
+            padding: 12px 16px;
+            box-shadow: 0 1px 3px rgba(16,24,40,0.04);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .right .header .name {
+            font-size: 20px;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .right .header .phone {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .conversation-window {
+            background: var(--card);
+            border-radius: 8px;
+            padding: 12px;
+            box-shadow: 0 1px 3px rgba(16,24,40,0.04);
+            overflow-y: auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .message-row {
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+            max-width: 80%;
+        }
+
+        .message-left { justify-content: flex-start; margin-right: auto; }
+        .message-right { justify-content: flex-end; margin-left: auto; }
+
+        .bubble {
+            padding: 10px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.35;
+            box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .bubble.bot {
+            background: var(--bot-bg);
+            color: #0f172a;
+            border: 1px solid rgba(15,23,42,0.04);
+            border-top-left-radius: 4px;
+        }
+
+        .bubble.user {
+            background: var(--user-bg);
+            color: var(--user-color);
+            border-top-right-radius: 4px;
+        }
+
+        .ts {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 4px;
+            text-align: right;
+        }
+
+        /* Small responsive tweaks */
+        @media (max-width: 720px) {
+            .container { flex-direction: column; padding: 8px; }
+            .left { width: 100%; order: 2; }
+            .right { order: 1; }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="left">
+            <div class="contacts" id="contactsList" aria-label="Contacts list">
+                <!-- contacts inserted here -->
+            </div>
+        </div>
+
+        <div class="right">
+            <div class="header" id="contactHeader">
+                <div class="name" id="headerName">Select a conversation</div>
+                <div class="phone" id="headerPhone"></div>
+            </div>
+
+            <div class="conversation-window" id="conversationWindow" aria-live="polite">
+                <!-- messages inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let CONTACTS_API = null;
+        let MESSAGES_API = null;
+
+        const contactsList = document.getElementById('contactsList');
+        const headerName = document.getElementById('headerName');
+        const headerPhone = document.getElementById('headerPhone');
+        const conversationWindow = document.getElementById('conversationWindow');
+
+        let contacts = [];
+        let selectedCallSID = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const res = await fetch('/api/config');
+                const cfg = await res.json();
+                if (cfg.demobotBaseUrl) {
+                    CONTACTS_API = cfg.demobotBaseUrl + '/users';
+                    MESSAGES_API = cfg.demobotBaseUrl + '/user/conversations';
+                }
+            } catch (e) {}
+            loadContacts();
+        });
+
+        async function loadContacts() {
+            if (!CONTACTS_API) {
+                contactsList.innerHTML = '<div style="padding:12px;color:#b91c1c">Backend not configured. Set DEMOBOT_BASE_URL in the server environment.</div>';
+                return;
+            }
+            try {
+                const res = await fetch(CONTACTS_API);
+                if (!res.ok) throw new Error('Failed to load contacts: ' + res.status);
+                let receivedData = await res.json();
+                console.log(receivedData)
+                contacts = receivedData.data;
+                renderContacts();
+            } catch (err) {
+                console.error(err);
+                contactsList.innerHTML = '<div style="padding:12px;color:#b91c1c">Failed to load contacts</div>';
+            }
+        }
+
+        function renderContacts() {
+            contactsList.innerHTML = '';
+            if (!Array.isArray(contacts) || contacts.length === 0) {
+                contactsList.innerHTML = '<div style="padding:12px;color:var(--muted)">No contacts</div>';
+                return;
+            }
+
+            // Sort by createdAt desc (newest first) so recent contacts show on top optionally
+            contacts.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+            contacts.forEach(c => {
+                const el = document.createElement('div');
+                el.className = 'contact';
+                el.dataset.callsid = c.callSID || '';
+                el.innerHTML = `
+                    <div class="name">${escapeHtml(c.name || 'Unknown')}</div>
+                    <div class="phone">${escapeHtml(c.PhoneNumber || '')}</div>
+                `;
+                el.addEventListener('click', () => onContactClick(c, el));
+                contactsList.appendChild(el);
+            });
+        }
+
+        async function onContactClick(contact, elementNode) {
+            // highlight
+            Array.from(contactsList.children).forEach(ch => ch.classList.remove('selected'));
+            elementNode.classList.add('selected');
+
+            selectedCallSID = contact.callSID;
+            headerName.textContent = contact.name || 'Unknown';
+            headerPhone.textContent = contact.PhoneNumber || '';
+
+            await loadMessagesForCallSID(selectedCallSID);
+        }
+
+        async function loadMessagesForCallSID(callSID) {
+            if (!callSID) return;
+            if (!MESSAGES_API) {
+                conversationWindow.innerHTML = '<div style="padding:12px;color:#b91c1c">Backend not configured. Set DEMOBOT_BASE_URL in the server environment.</div>';
+                return;
+            }
+            try {
+                const url = new URL(MESSAGES_API, window.location.origin);
+                url.searchParams.set('callSID', callSID);
+                const res = await fetch(url.toString());
+                if (!res.ok) throw new Error('Failed to load messages: ' + res.status);
+                const arr = await res.json();
+                renderMessages(arr.data);
+            } catch (err) {
+                console.error(err);
+                conversationWindow.innerHTML = '<div style="padding:12px;color:#b91c1c">Failed to load conversation</div>';
+            }
+        }
+
+        function renderMessages(messages) {
+            if (!Array.isArray(messages)) messages = [];
+            // Sort by createdAt ascending (old first)
+            messages.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+            conversationWindow.innerHTML = '';
+            messages.forEach(msg => {
+                const side = (String(msg.role || '').toLowerCase() === 'user') ? 'right' : 'left';
+                const wrapper = document.createElement('div');
+                wrapper.className = 'message-row ' + (side === 'right' ? 'message-right' : 'message-left');
+
+                const bubble = document.createElement('div');
+                bubble.className = 'bubble ' + (side === 'right' ? 'user' : 'bot');
+                bubble.textContent = msg.content || '';
+
+                const ts = document.createElement('div');
+                ts.className = 'ts';
+                const roleLabel = (String(msg.role || '').toLowerCase() === 'user') ? 'User' : 'Bot';
+                ts.textContent = `${roleLabel} · ${formatTimestamp(msg.createdAt || msg.timestamp)}`;
+
+                // For layout: show bubble then timestamp under the bubble
+                const col = document.createElement('div');
+                col.style.display = 'flex';
+                col.style.flexDirection = 'column';
+                col.appendChild(bubble);
+                col.appendChild(ts);
+
+                wrapper.appendChild(col);
+                conversationWindow.appendChild(wrapper);
+            });
+
+            // keep older messages at top and keep view at top (do not auto-scroll to bottom)
+            requestAnimationFrame(() => {
+                conversationWindow.scrollTop = 0;
+            });
+        }
+
+        // small helpers
+        function formatTimestamp(value) {
+            if (!value) return '';
+            const d = new Date(value);
+            if (isNaN(d)) return value;
+            // e.g., 2025-11-23 14:05
+            const pad = n => String(n).padStart(2,'0');
+            return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        // Expose for debugging
+        window.__conversationViewer = {
+            reloadContacts: loadContacts,
+            loadMessagesForCallSID
+        };
+    </script>
+</body>
+</html>
